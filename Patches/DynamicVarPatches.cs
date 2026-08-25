@@ -1,5 +1,5 @@
 ﻿using System.Text.RegularExpressions;
-using BetterDamagePreviews.PreviewVars;
+using BetterDamagePreviews.Preview;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 
@@ -13,13 +13,12 @@ public static partial class DamagePreviewPatch
     {
         // Append the total calculated damage after the normal damage value on the card
 
-        IDamagePreviewVar? previewVar = __instance as IDamagePreviewVar;
-        if (previewVar != null || PreviewManager.AutoPreviewDamageLookup.TryGetValue(__instance, out previewVar))
+        if (PreviewManager.PreviewCache.TryGetValue(__instance, out IDamagePreview? preview))
         {
-            int totalDamage = PreviewManager.CalculateTotalDamage(previewVar);
-            if (previewVar.ShouldDisplayValue && totalDamage >= 0 && totalDamage != (int)previewVar.PreviewValue)
+            int totalDamage = preview.PreviewValue;
+            if (preview.ShouldDisplayValue && totalDamage >= 0 && totalDamage != (int)__instance.PreviewValue)
             {
-                string accuracyAdendum = previewVar.Accuracy switch
+                string accuracyAdendum = preview.Accuracy switch
                 {
                     Accuracy.Accurate => "",
                     Accuracy.Approximate => "?",
@@ -29,7 +28,7 @@ public static partial class DamagePreviewPatch
                 __result = $"{__result} ([orange]{totalDamage}{accuracyAdendum}[/orange])";
             }
         }
-        else if (PreviewManager.AutoPreviewHitCountLookup.TryGetValue(__instance, out previewVar) && previewVar.CardDamageSource != null)
+        else if (PreviewManager.HitCountLookup.TryGetValue(__instance, out preview) && preview.CardDamageSource != null)
         {
             // If we marked this DynamicVar as a hitcount var, we can display it's modified hitcount with highlighting.
 
@@ -38,7 +37,7 @@ public static partial class DamagePreviewPatch
             {
                 if (int.TryParse(match.Groups[1].Value, out int currentHitCount))
                 {
-                    int newHitCount = previewVar.CardDamageSource.HitCount;
+                    int newHitCount = preview.CardDamageSource.HitCount;
                     if (newHitCount > currentHitCount)
                     {
                         __result = $"[green]{newHitCount}[/green]";

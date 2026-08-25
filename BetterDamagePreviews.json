@@ -1,12 +1,12 @@
 {
   "id": "BetterDamagePreviews",
-  "name": "BetterDamagePreviews",
+  "name": "Better Damage Previews",
   "author": "chunker",
-  "description": "Display a more accurate damage total for attacks, summing multi-hit attacks, considering effects like Intangible and Slippery, and other card-specific effects.",
-  "version": "v0.1.0",
+  "description": "Display a more accurate damage preview value, summing multi-hit attacks, considering effects like Slippery and Flutter, and other card-specific effects.\n\nWorks with all base game cards, and any modded cards that follow base game conventions (doesn't require patching individual cards).\n\nAlso provides an API to add additional support for modded cards and to define custom calculations.",
+  "version": "v1.0.0",
   "has_pck": true,
   "has_dll": true,
   "affects_gameplay": false,
-  "min_game_version": "0.111.0",
+  "min_game_version": "0.107.1",
   "dependencies": []
 }

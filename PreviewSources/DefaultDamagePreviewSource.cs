@@ -1,4 +1,4 @@
-﻿using BetterDamagePreviews.PreviewVars;
+﻿using BetterDamagePreviews.Preview;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.ValueProps;
 
@@ -10,10 +10,10 @@ namespace BetterDamagePreviews.PreviewSources;
 /// <remarks>For internal use only.</remarks>
 public sealed class DefaultDamagePreviewSource : IDamagePreviewSource
 {
-    /// <inheritdoc cref="DefaultDamagePreviewSource.DefaultDamagePreviewSource(AbstractModel?, decimal, int, ValueProp)"/>
+    /// <inheritdoc cref="DefaultDamagePreviewSource(AbstractModel?, decimal, int, ValueProp)"/>
     internal DefaultDamagePreviewSource(AbstractModel? source, decimal damage) : this(source, damage, hitCount: 1) { }
 
-    /// <inheritdoc cref="DefaultDamagePreviewSource.DefaultDamagePreviewSource(AbstractModel?, decimal, int, ValueProp)"/>
+    /// <inheritdoc cref="DefaultDamagePreviewSource(AbstractModel?, decimal, int, ValueProp)"/>
     internal DefaultDamagePreviewSource(AbstractModel? source, decimal damage, int hitCount) : this(source, damage, hitCount, ValueProp.Move) { }
 
     /// <summary>
@@ -33,10 +33,10 @@ public sealed class DefaultDamagePreviewSource : IDamagePreviewSource
     }
 
     /// <inheritdoc/>
-    public IDamagePreviewSource GetNewInstance(IDamagePreviewVar previewVar, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play."); // => new AttackDamagePreviewSource(previewVar, SourceModel, Damage, HitCount);
+    public IDamagePreviewSource GetNewInstance(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play.");
 
     /// <inheritdoc/>
-    public void Initialize(IDamagePreviewVar previewVar, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play.");
+    public void Initialize(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play.");
 
     /// <inheritdoc/>
     public AbstractModel? SourceModel { get; private set; }

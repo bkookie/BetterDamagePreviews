@@ -1,4 +1,4 @@
-﻿using BetterDamagePreviews.PreviewVars;
+﻿using BetterDamagePreviews.Preview;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Cards;
 using MegaCrit.Sts2.Core.Models.Orbs;
@@ -13,23 +13,23 @@ public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDam
 {
     internal TeslaCoilDamagePreviewSource() { }
 
-    private TeslaCoilDamagePreviewSource(IDamagePreviewVar previewVar, bool isTopLevel)
+    private TeslaCoilDamagePreviewSource(IDamagePreview preview, bool isTopLevel)
     {
-        Initialize(previewVar, isTopLevel);
+        Initialize(preview, isTopLevel);
     }
 
     /// <inheritdoc/>
-    public IDamagePreviewSource GetNewInstance(IDamagePreviewVar previewVar, bool isTopLevel)
+    public IDamagePreviewSource GetNewInstance(IDamagePreview preview, bool isTopLevel)
     {
-        return new TeslaCoilDamagePreviewSource(previewVar, isTopLevel);
+        return new TeslaCoilDamagePreviewSource(preview, isTopLevel);
     }
 
     /// <inheritdoc/>
-    public void Initialize(IDamagePreviewVar previewVar, bool isTopLevel)
+    public void Initialize(IDamagePreview preview, bool isTopLevel)
     {
-        SourceModel = previewVar.PreviewOwner?.Player?.PlayerCombatState?.OrbQueue.Orbs.FirstOrDefault(orb => orb is LightningOrb);
-        HitsRemaining = HitCount;
+        SourceModel = preview.PreviewOwner?.Player?.PlayerCombatState?.OrbQueue.Orbs.FirstOrDefault(orb => orb is LightningOrb);
         IsPassiveDamage = true;
+        HitsRemaining = HitCount;
     }
 
     /// <inheritdoc/>

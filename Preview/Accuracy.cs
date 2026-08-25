@@ -1,4 +1,4 @@
-﻿namespace BetterDamagePreviews.PreviewVars;
+﻿namespace BetterDamagePreviews.Preview;
 
 /// <summary>
 /// Indicates how accurate the calculated damage is.

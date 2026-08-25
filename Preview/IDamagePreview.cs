@@ -1,26 +1,37 @@
 ﻿using BetterDamagePreviews.PreviewSources;
+using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Powers;
 
-namespace BetterDamagePreviews.PreviewVars;
+namespace BetterDamagePreviews.Preview;
 
 /// <summary>
-/// Interface for a <see cref="DamageVar"/> that can display a more accurate damage value, including various damage modifiers such as <see cref="IntangiblePower"/> or <see cref="SlipperyPower"/>.
+/// Links to a <see cref="DamageVar"/>, allowing it to include additional calculations when previewing it's damage value (including various damage modifiers such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>).
 /// </summary>
 /// <remarks>To calculate more complex interactions, such as additional damage effects from the card itself or other powers, requires the use of one or more <see cref="IDamagePreviewSource"/>.</remarks>
-public interface IDamagePreviewVar
+public interface IDamagePreview
 {
     /// <summary>
-    /// The card that owns the <see cref="IDamagePreviewVar"/>.
+    /// The <see cref="DamageVar"/> that this is linked to.
     /// </summary>
-    public AbstractModel? Owner { get; internal set; }
+    public DamageVar LinkedDamageVar { get; }
+
+    /// <summary>
+    /// A function accepting a <see cref="Creature"/> target, and returning a hit count.
+    /// </summary>
+    public Func<Creature?, int> GetHitCount { get; }
+
+    /// <summary>
+    /// The <see cref="CardModel"/> that that this is linked to.
+    /// </summary>
+    public CardModel Owner { get; }
 
     /// <summary>
     /// The calculated damage after all display hooks have executed, but before the custom calculation is run.
     /// </summary>
-    public decimal PreviewValue { get; set; }
+    public int PreviewValue { get; set; }
 
     /// <summary>
     /// The <see cref="Creature"/> that owns the card being previewed.
@@ -38,11 +49,6 @@ public interface IDamagePreviewVar
     public Accuracy Accuracy { get; set; }
 
     /// <summary>
-    /// How many extra times the attack will hit beyond the first. This is used when the card's hit count is hardcoded (no DynamicVar to read from).
-    /// </summary>
-    public int ExtraHitCount { get; set; }
-
-    /// <summary>
     /// The main damage source of the card.
     /// </summary>
     public DefaultDamagePreviewSource? CardDamageSource { get; set; }
@@ -51,4 +57,11 @@ public interface IDamagePreviewVar
     /// Whether to display the calculated value on the card.
     /// </summary>
     public bool ShouldDisplayValue { get; set; }
+
+    /// <summary>
+    /// Performs the additional calculations required to display a more accurate damage preview value.
+    /// </summary>
+    /// <remarks>Override this method if you need to update your custom fields before calculating (make sure to still call the base method).</remarks>
+    /// <inheritdoc cref="DamageVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>
+    public void UpdateDamagePreview(CardModel card, Creature? target);
 }

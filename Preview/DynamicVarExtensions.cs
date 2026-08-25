@@ -1,7 +1,7 @@
 ﻿using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 
-namespace BetterDamagePreviews.PreviewVars;
+namespace BetterDamagePreviews.Preview;
 
 internal static class DynamicVarExtensions
 {
