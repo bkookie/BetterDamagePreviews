@@ -17,7 +17,7 @@ public sealed class DefaultPreviewInitializer : IDamagePreviewInitializer
     /// <inheritdoc/>
     public bool Initialize(IDamagePreview preview)
     {
-        if (preview.Owner.TargetType == TargetType.RandomEnemy && preview.PreviewTarget == null) // null target means there are multiple enemies (or it is not being hovered)
+        if (preview.Card.TargetType == TargetType.RandomEnemy && preview.PreviewTarget == null) // null target means there are multiple enemies (or it is not being hovered)
         {
             return false;
         }
@@ -27,7 +27,7 @@ public sealed class DefaultPreviewInitializer : IDamagePreviewInitializer
 
     private static void RunHookAndSetHitCount(IDamagePreview preview, int hitCount)
     {
-        hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.PreviewOwner!, preview.PreviewTarget, hitCount);
+        hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, preview.PreviewTarget, hitCount);
         preview.CardDamageSource!.HitCount = hitCount;
         preview.CardDamageSource!.HitsRemaining = hitCount;
     }

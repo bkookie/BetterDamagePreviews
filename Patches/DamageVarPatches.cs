@@ -68,6 +68,6 @@ public static class UpdateCardPreviewPatch
             PreviewManager.PreviewCache[__instance] = preview;
         }
 
-        preview.UpdateDamagePreview(card, target);
+        preview.UpdateDamagePreview(target);
     }
 }

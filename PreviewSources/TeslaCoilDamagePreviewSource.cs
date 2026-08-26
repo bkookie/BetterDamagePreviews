@@ -27,7 +27,7 @@ public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDam
     /// <inheritdoc/>
     public void Initialize(IDamagePreview preview, bool isTopLevel)
     {
-        SourceModel = preview.PreviewOwner?.Player?.PlayerCombatState?.OrbQueue.Orbs.FirstOrDefault(orb => orb is LightningOrb);
+        SourceModel = preview.Card.Owner.PlayerCombatState?.OrbQueue.Orbs.FirstOrDefault(orb => orb is LightningOrb);
         IsPassiveDamage = true;
         HitsRemaining = HitCount;
     }

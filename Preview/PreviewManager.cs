@@ -21,37 +21,16 @@ internal record HitCountVarName(string HitCountName, string CalculatedHitCountNa
 /// </summary>
 public static class PreviewManager
 {
-    /// <summary>
-    /// For cards that dont use "Repeat" for their hitcount var name, you can specify the actual name to use here.
-    /// </summary>
-    private static readonly Dictionary<Type, HitCountVarName> _cardHitCountVarNameLookup = [];
-    internal static IReadOnlyDictionary<Type, HitCountVarName> CardHitCountVarNameLookup => _cardHitCountVarNameLookup;
-
-    private static readonly Dictionary<Type, Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview>> _cardPreviewFactory = [];
-    internal static IReadOnlyDictionary<Type, Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview>> CardPreviewFactory => _cardPreviewFactory;
-
+    internal static readonly Dictionary<Type, HitCountVarName> CardHitCountVarNameLookup = []; // For cards that dont use "Repeat" for their hitcount var name, you can specify the actual name to use here.
+    internal static readonly Dictionary<Type, Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview>> CardPreviewFactory = [];
     internal static readonly Dictionary<DynamicVar, IDamagePreview> PreviewCache = [];
     internal static readonly Dictionary<DynamicVar, IDamagePreview> HitCountLookup = []; // Allows the hit count preview value to update on the card as well as the damage. Has no effect if the card does not preview the hit count.
 
+    internal static readonly HashSet<IDamagePreviewInitializer> BeforeAttackInitializers = [];
+    internal static readonly HashSet<IDamagePreviewSource> AfterHitListeners = [];
+    internal static readonly HashSet<IDamagePreviewSource> AfterAttackListeners = [];
+
     internal static Func<DynamicVar?, Func<Creature?, int>> HitCountFromDynamicVarFunc => hitCountVar => target => hitCountVar is CalculatedVar calculatedVar ? calculatedVar.CalculateInt(target) : hitCountVar is DynamicVar dynamicVar ? dynamicVar.IntValue : 1;
-
-
-
-    /// <summary>
-    /// The set of <see cref="IDamagePreviewInitializer"/> that will be initialized once at the start of the attack.
-    /// </summary>
-    /// <remarks>Use this to modify the damage or hit count of the existing attack.</remarks>
-    public static readonly HashSet<IDamagePreviewInitializer> BeforeAttackInitialization = [];
-
-    /// <summary>
-    /// The set of <see cref="IDamagePreviewSource"/> that will be probed after every instance of damage during the calculation.
-    /// </summary>
-    public static readonly HashSet<IDamagePreviewSource> AfterHitListeners = [];
-
-    /// <summary>
-    /// The set of <see cref="IDamagePreviewSource"/> that will be probed once, after all hits of the attack have been calculated.
-    /// </summary>
-    public static readonly HashSet<IDamagePreviewSource> AfterAttackListeners = [];
 
 
 
@@ -79,7 +58,7 @@ public static class PreviewManager
         AddPreviewFactoryForXHitCountCard<Volley>(true);
         AddPreviewFactoryForXHitCountCard<Whirlwind>(true);
 
-        BeforeAttackInitialization.Add(new DefaultPreviewInitializer());
+        BeforeAttackInitializers.Add(new DefaultPreviewInitializer());
         AfterAttackListeners.Add(new TeslaCoilDamagePreviewSource());
 
         RunManager.Instance.RoomEntered += ClearLookups;
@@ -114,18 +93,13 @@ public static class PreviewManager
         }
     }
 
-    private static void AddHitCountVarNameLookup(Type cardType, string hitCountVarName, string calculatedHitCountVarName, DynamicVarType varType)
-    {
-        _cardHitCountVarNameLookup[cardType] = new HitCountVarName(hitCountVarName, calculatedHitCountVarName, varType);
-    }
-
     /// <summary>
     /// Register all cards in a <see cref="CardPoolModel"/> to use the supplied lookup names.
     /// </summary>
     /// <typeparam name="T">The type of <see cref="CardModel"/> to register.</typeparam>
     /// <param name="hitCountVarName">The name to use when looking for a <see cref="DynamicVar"/>. Supplying <see langword="null"/> will use the default name "Repeat".</param>
     /// <param name="calculatedHitCountVarName">The name to use when looking for a <see cref="CalculatedVar"/>. Supplying <see langword="null"/> will use the default name "CalculatedHits".</param>
-    public static void AddHitCountVarNameLookupForCardPool<T>(string? hitCountVarName, string? calculatedHitCountVarName) where T : CardPoolModel
+    public static void AddHitCountVarNameLookup<T>(string? hitCountVarName, string? calculatedHitCountVarName) where T : CardPoolModel
     {
         hitCountVarName ??= RepeatVar.defaultName;
         calculatedHitCountVarName ??= CalculatedVar.DefaultHitCountName;
@@ -134,6 +108,11 @@ public static class PreviewManager
         {
             AddHitCountVarNameLookup(card.GetType(), hitCountVarName, calculatedHitCountVarName, DynamicVarType.Either);
         }
+    }
+
+    private static void AddHitCountVarNameLookup(Type cardType, string hitCountVarName, string calculatedHitCountVarName, DynamicVarType varType)
+    {
+        CardHitCountVarNameLookup[cardType] = new HitCountVarName(hitCountVarName, calculatedHitCountVarName, varType);
     }
 
     /// <summary>
@@ -162,12 +141,12 @@ public static class PreviewManager
     /// </summary>
     /// <remarks>
     /// Used for cards with complex hit count calculations, or for creating classes derived from <see cref="IDamagePreview"/>.
-    /// <para/>The <see cref="CardModel"/> passed into the Func() will always be of type <typeparamref name="T"/>.
+    /// <para/>The <see cref="CardModel"/> provided to the <paramref name="factory"/> will always be of type <typeparamref name="T"/>.
     /// </remarks>
     /// <typeparam name="T">A specific <see cref="CardModel"/>, or an <see langword="interface"/> that one or more cards implement. Any other type will have no effect.</typeparam>
     public static void AddPreviewFactory<T>(Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview> factory)
     {
-        _cardPreviewFactory.Add(typeof(T), factory);
+        CardPreviewFactory.Add(typeof(T), factory);
     }
 
     /// <inheritdoc cref="AddPreviewFactoryForXHitCountCard{T}(bool, Func{CardModel, int, int}?)"/>
@@ -181,31 +160,55 @@ public static class PreviewManager
     /// </summary>
     /// <typeparam name="T">A specific <see cref="CardModel"/>, or an <see langword="interface"/> that one or more cards implement. Any other type will have no effect.</typeparam>
     /// <param name="usesEnergy">Whether the X cost is for energy or stars.</param>
-    /// <param name="modifyXValue">A function for modifying the resolved X value of the card, after executing <see cref="Hook.ModifyXValue(MegaCrit.Sts2.Core.Combat.ICombatState, CardModel, int)"/>.</param>
-    public static void AddPreviewFactoryForXHitCountCard<T>(bool usesEnergy, Func<CardModel, int, int>? modifyXValue)
+    /// <param name="modifyXValueAfterHook">A function for modifying the resolved X value of the card, after executing <see cref="Hook.ModifyXValue(MegaCrit.Sts2.Core.Combat.ICombatState, CardModel, int)"/>.</param>
+    public static void AddPreviewFactoryForXHitCountCard<T>(bool usesEnergy, Func<CardModel, int, int>? modifyXValueAfterHook)
     {
-        _cardPreviewFactory.Add(typeof(T), (damageVar, _, card) => new DamagePreview(damageVar, _ =>
+        AddPreviewFactory<T>((damageVar, _, card) => new DamagePreview(damageVar, _ =>
         {
             int xValue = usesEnergy ? card.Owner.PlayerCombatState?.Energy ?? 0 : card.Owner.PlayerCombatState?.Stars ?? 0;
             xValue = (card.CombatState != null) ? Hook.ModifyXValue(card.CombatState, card, xValue) : xValue;
-            xValue = (modifyXValue != null) ? modifyXValue(card, xValue) : xValue;
+            xValue = (modifyXValueAfterHook != null) ? modifyXValueAfterHook(card, xValue) : xValue;
             return xValue;
         }, card));
+    }
+
+    /// <summary>
+    /// Add an <see cref="IDamagePreviewInitializer"/> that will be run once at the start of a calculation.
+    /// </summary>
+    /// <remarks>Use this to modify the damage or hit count of an attack.</remarks>
+    public static void AddBeforeAttackInitializer(IDamagePreviewInitializer initializer)
+    {
+        BeforeAttackInitializers.Add(initializer);
+    }
+
+    /// <summary>
+    /// Add an <see cref="IDamagePreviewSource"/> that will be probed after every instance of damage during the calculation.
+    /// </summary>
+    public static void AddAfterHitListener(IDamagePreviewSource damageSource)
+    {
+        AfterHitListeners.Add(damageSource);
+    }
+
+    /// <summary>
+    /// Add an <see cref="IDamagePreviewSource"/> that will be probed only once, after all hits of the attack have been processed.
+    /// </summary>
+    public static void AddAfterAttackListener(IDamagePreviewSource damageSource)
+    {
+        AfterAttackListeners.Add(damageSource);
     }
 
     /// <summary>
     /// Prepares the suppliedvar for final calculations. Should be called from <see cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>.
     /// </summary>
     /// <inheritdoc cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>
-    public static void UpdateDamagePreview(IDamagePreview preview, CardModel card, Creature? target)
+    public static void UpdateDamagePreview(IDamagePreview preview, Creature? target)
     {
-        preview.PreviewOwner = card.Owner.Creature;
         preview.PreviewTarget = target;
         preview.Accuracy = Accuracy.Accurate;
         preview.ShouldDisplayValue = true;
 
-        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(card.Owner.Creature, target, preview.GetHitCount(target));
-        preview.CardDamageSource = new DefaultDamagePreviewSource(card, preview.LinkedDamageVar.PreviewValue, hitCount);
+        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, target, preview.GetHitCount(target));
+        preview.CardDamageSource = new DefaultDamagePreviewSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount);
 
         preview.PreviewValue = CalculateTotalDamage(preview);
     }
@@ -218,13 +221,13 @@ public static class PreviewManager
     /// <returns>The total calculated damage, after all modifiers have been applied.</returns>
     public static int CalculateTotalDamage(IDamagePreview preview)
     {
-        if (!preview.Owner.IsInCombat || preview.CardDamageSource == null)
+        if (!preview.Card.IsInCombat || preview.CardDamageSource == null)
         {
             preview.ShouldDisplayValue = false;
             return -1;
         }
 
-        foreach (IDamagePreviewInitializer initializer in BeforeAttackInitialization)
+        foreach (IDamagePreviewInitializer initializer in BeforeAttackInitializers)
         {
             if (!initializer.Initialize(preview))
             {
@@ -235,14 +238,14 @@ public static class PreviewManager
 
         int totalDamage = 0;
 
-        if (preview.PreviewOwner != null && preview.PreviewTarget != null)
+        if (preview.PreviewTarget != null)
         {
             int hardToKillCap = preview.PreviewTarget.GetPowerAmount<HardToKillPower>(); // ModifyDamageCap
             HardenedShellPower? hardenedShell = preview.PreviewTarget.GetPower<HardenedShellPower>();
             int hardenedShellAmount = preview.PreviewTarget.GetPower<HardenedShellPower>()?.DisplayAmount ?? 0; // ModifyHpLostBeforeOstyLate (ticks down in AfterDamageReceived)
             int intangibleCap = preview.PreviewTarget.HasPower<IntangiblePower>() ? 1 : 0; // ModifyHpLostAfterOsty (uses ModifyDamageCap for display purposes)
             int slipperyAmount = preview.PreviewTarget.GetPowerAmount<SlipperyPower>(); // ModifyHpLostAfterOsty (ticks down in AfterDamageReceived)
-            bool haveTheBoot = preview.PreviewOwner.Player?.Relics.Any(relic => relic is TheBoot) ?? false;
+            bool haveTheBoot = preview.Card.Owner.Relics.Any(relic => relic is TheBoot);
             int bootDamage = haveTheBoot ? 5 : 0; // ModifyHpLostAfterOstyLate
             int flutterAmount = preview.PreviewTarget.GetPowerAmount<FlutterPower>(); // AfterDamageReceived
 
@@ -291,7 +294,7 @@ public static class PreviewManager
         }
         else
         {
-            totalDamage = (int)preview.CardDamageSource.Damage * preview.CardDamageSource.HitCount;
+            totalDamage = (int)preview.CardDamageSource.Damage * preview.CardDamageSource.HitCount; // When card is in sitting hand (not hovering a target), or there are multiple targets
         }
 
         return totalDamage;

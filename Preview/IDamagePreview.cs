@@ -8,7 +8,7 @@ using MegaCrit.Sts2.Core.Models.Powers;
 namespace BetterDamagePreviews.Preview;
 
 /// <summary>
-/// Links to a <see cref="DamageVar"/>, allowing it to include additional calculations when previewing it's damage value (including various damage modifiers such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>).
+/// Links to a <see cref="DamageVar"/> and facilitates additional calculations when previewing it's damage total (including various damage modifiers such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>).
 /// </summary>
 /// <remarks>To calculate more complex interactions, such as additional damage effects from the card itself or other powers, requires the use of one or more <see cref="IDamagePreviewSource"/>.</remarks>
 public interface IDamagePreview
@@ -26,17 +26,7 @@ public interface IDamagePreview
     /// <summary>
     /// The <see cref="CardModel"/> that that this is linked to.
     /// </summary>
-    public CardModel Owner { get; }
-
-    /// <summary>
-    /// The calculated damage after all display hooks have executed, but before the custom calculation is run.
-    /// </summary>
-    public int PreviewValue { get; set; }
-
-    /// <summary>
-    /// The <see cref="Creature"/> that owns the card being previewed.
-    /// </summary>
-    public Creature? PreviewOwner { get; set; }
+    public CardModel Card { get; }
 
     /// <summary>
     /// The current hover target of the card being held.
@@ -49,19 +39,24 @@ public interface IDamagePreview
     public Accuracy Accuracy { get; set; }
 
     /// <summary>
-    /// The main damage source of the card.
-    /// </summary>
-    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
-
-    /// <summary>
     /// Whether to display the calculated value on the card.
     /// </summary>
     public bool ShouldDisplayValue { get; set; }
+
+    /// <summary>
+    /// The calculated damage after all display hooks have executed, but before the custom calculation is run.
+    /// </summary>
+    public int PreviewValue { get; set; }
+
+    /// <summary>
+    /// The main damage source of the card.
+    /// </summary>
+    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
 
     /// <summary>
     /// Performs the additional calculations required to display a more accurate damage preview value.
     /// </summary>
     /// <remarks>Override this method if you need to update your custom fields before calculating (make sure to still call the base method).</remarks>
     /// <inheritdoc cref="DamageVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>
-    public void UpdateDamagePreview(CardModel card, Creature? target);
+    public void UpdateDamagePreview(Creature? target);
 }

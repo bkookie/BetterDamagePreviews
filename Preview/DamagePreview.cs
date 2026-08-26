@@ -28,18 +28,18 @@ public class DamagePreview : IDamagePreview
     /// </summary>
     /// <param name="damageVar">The <see cref="DamageVar"/> that this is linked to.</param>
     /// <param name="hitCountFunc">A function accepting a target, and returning a hit count.</param>
-    /// <param name="owner">The <see cref="CardModel"/> that this is linked to.</param>
-    public DamagePreview(DamageVar damageVar, Func<Creature?, int> hitCountFunc, CardModel owner)
+    /// <param name="card">The <see cref="CardModel"/> that this is linked to.</param>
+    public DamagePreview(DamageVar damageVar, Func<Creature?, int> hitCountFunc, CardModel card)
     {
         LinkedDamageVar = damageVar;
         GetHitCount = hitCountFunc;
-        Owner = owner;
+        Card = card;
     }
 
     /// <inheritdoc/>
-    public virtual void UpdateDamagePreview(CardModel card, Creature? target)
+    public virtual void UpdateDamagePreview(Creature? target)
     {
-        PreviewManager.UpdateDamagePreview(this, card, target);
+        PreviewManager.UpdateDamagePreview(this, target);
     }
 
     /// <inheritdoc/>
@@ -49,13 +49,7 @@ public class DamagePreview : IDamagePreview
     public Func<Creature?, int> GetHitCount { get; }
 
     /// <inheritdoc/>
-    public CardModel Owner { get; }
-
-    /// <inheritdoc/>
-    public int PreviewValue { get; set; }
-
-    /// <inheritdoc/>
-    public Creature? PreviewOwner { get; set; }
+    public CardModel Card { get; }
 
     /// <inheritdoc/>
     public Creature? PreviewTarget { get; set; }
@@ -64,8 +58,11 @@ public class DamagePreview : IDamagePreview
     public Accuracy Accuracy { get; set; }
 
     /// <inheritdoc/>
-    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
+    public bool ShouldDisplayValue { get; set; }
 
     /// <inheritdoc/>
-    public bool ShouldDisplayValue { get; set; }
+    public int PreviewValue { get; set; }
+
+    /// <inheritdoc/>
+    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
 }
