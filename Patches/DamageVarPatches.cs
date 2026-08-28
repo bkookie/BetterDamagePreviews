@@ -62,7 +62,7 @@ public static class UpdateCardPreviewPatch
 
             if (hitCountVar != null)
             {
-                PreviewManager.HitCountLookup[hitCountVar] = preview;
+                PreviewManager.HitCountVarLookup[hitCountVar] = preview;
             }
 
             PreviewManager.PreviewCache[__instance] = preview;

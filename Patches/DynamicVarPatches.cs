@@ -28,9 +28,9 @@ public static partial class DamagePreviewPatch
                 __result = $"{__result} ([orange]{totalDamage}{accuracyAdendum}[/orange])";
             }
         }
-        else if (PreviewManager.HitCountLookup.TryGetValue(__instance, out preview) && preview.CardDamageSource != null)
+        else if (PreviewManager.HitCountVarLookup.TryGetValue(__instance, out preview) && preview.CardDamageSource != null)
         {
-            // If we marked this DynamicVar as a hitcount var, we can display it's modified hitcount with highlighting.
+            // If we marked this DynamicVar as a hitcountvar, we can display it's modified hitcount with highlighting.
 
             Match match = GetPreviewValueWithoutFormatting().Match(__result);
             if (match.Success)

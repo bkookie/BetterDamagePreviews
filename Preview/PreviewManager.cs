@@ -1,6 +1,7 @@
-﻿using BetterDamagePreviews.Hooks;
+﻿using BetterDamagePreviews.DamageSources;
+using BetterDamagePreviews.Hooks;
 using BetterDamagePreviews.PreviewInitilizers;
-using BetterDamagePreviews.PreviewSources;
+using BetterDamagePreviews.Wrappers;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Hooks;
@@ -24,13 +25,18 @@ public static class PreviewManager
     internal static readonly Dictionary<Type, HitCountVarName> CardHitCountVarNameLookup = []; // For cards that dont use "Repeat" for their hitcount var name, you can specify the actual name to use here.
     internal static readonly Dictionary<Type, Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview>> CardPreviewFactory = [];
     internal static readonly Dictionary<DynamicVar, IDamagePreview> PreviewCache = [];
-    internal static readonly Dictionary<DynamicVar, IDamagePreview> HitCountLookup = []; // Allows the hit count preview value to update on the card as well as the damage. Has no effect if the card does not preview the hit count.
+    internal static readonly Dictionary<DynamicVar, IDamagePreview> HitCountVarLookup = []; // Allows the hit count preview value to update on the card as well as the damage. Has no effect if the card does not preview the hit count.
 
-    internal static readonly HashSet<IDamagePreviewInitializer> BeforeAttackInitializers = [];
-    internal static readonly HashSet<IDamagePreviewSource> AfterHitListeners = [];
-    internal static readonly HashSet<IDamagePreviewSource> AfterAttackListeners = [];
+    internal static readonly HashSet<IPreviewInitializer> BeforeAttackInitializers = [];
+    internal static readonly HashSet<IDamageSource> AfterHitListeners = [];
+    internal static readonly HashSet<IDamageSource> AfterAttackListeners = [];
+    internal static readonly HashSet<Type> AdditionalHitCountModifierTypes = [];
 
-    internal static Func<DynamicVar?, Func<Creature?, int>> HitCountFromDynamicVarFunc => hitCountVar => target => hitCountVar is CalculatedVar calculatedVar ? calculatedVar.CalculateInt(target) : hitCountVar is DynamicVar dynamicVar ? dynamicVar.IntValue : 1;
+    /// <summary>
+    /// A function that accepts a <see cref="DynamicVar"/> and returns another function, which accepts a target <see cref="Creature"/> and returns a hit count.
+    /// </summary>
+    /// <remarks>In other words, if the <see cref="DynamicVar"/> is a <see cref="CalculatedVar"/>, this returns the calculated hit count, otherwise it's BaseValue. If <see langword="null"/>, returns <c>1</c>.</remarks>
+    public static Func<DynamicVar?, Func<Creature?, int>> HitCountFromDynamicVarFunc => hitCountVar => target => hitCountVar is CalculatedVar calculatedVar ? calculatedVar.CalculateInt(target) : hitCountVar is DynamicVar dynamicVar ? dynamicVar.IntValue : 1;
 
 
 
@@ -59,7 +65,7 @@ public static class PreviewManager
         AddPreviewFactoryForXHitCountCard<Whirlwind>(true);
 
         BeforeAttackInitializers.Add(new DefaultPreviewInitializer());
-        AfterAttackListeners.Add(new TeslaCoilDamagePreviewSource());
+        AfterAttackListeners.Add(new TeslaCoilDamageSource());
 
         RunManager.Instance.RoomEntered += ClearLookups;
         RunManager.Instance.RoomExited += ClearLookups;
@@ -67,9 +73,177 @@ public static class PreviewManager
         static void ClearLookups()
         {
             PreviewCache.Clear();
-            HitCountLookup.Clear();
+            HitCountVarLookup.Clear();
         }
     }
+
+    /// <summary>
+    /// Prepares the suppliedvar for final calculations. Should be called from <see cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>.
+    /// </summary>
+    /// <inheritdoc cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>
+    public static void UpdateDamagePreview(IDamagePreview preview, Creature? target)
+    {
+        preview.PreviewTarget = target;
+        preview.Accuracy = Accuracy.Accurate;
+        preview.ShouldDisplayValue = true;
+
+        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, target, preview.GetHitCount(target));
+        preview.CardDamageSource = new DefaultDamageSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount);
+
+        preview.PreviewValue = CalculateTotalDamage(preview);
+    }
+
+    /// <summary>
+    /// Performs the final damage calculation.
+    /// <br/>Takes into account base game interactions such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>, and any custom damage sources supplied by other mods.
+    /// </summary>
+    /// <param name="preview">The var to calculate.</param>
+    /// <returns>The total calculated damage, after all modifiers have been applied.</returns>
+    public static int CalculateTotalDamage(IDamagePreview preview)
+    {
+        if (!preview.Card.IsInCombat || preview.CardDamageSource == null)
+        {
+            preview.ShouldDisplayValue = false;
+            return -1;
+        }
+
+        foreach (IPreviewInitializer initializer in BeforeAttackInitializers)
+        {
+            if (!initializer.Initialize(preview))
+            {
+                preview.ShouldDisplayValue = false;
+                return -1;
+            }
+        }
+
+        int totalDamage = 0;
+
+        if (preview.PreviewTarget != null)
+        {
+            int hardToKillCap = preview.PreviewTarget.GetPowerAmount<HardToKillPower>(); // ModifyDamageCap
+            HardenedShellPower? hardenedShell = preview.PreviewTarget.GetPower<HardenedShellPower>();
+            int hardenedShellAmount = preview.PreviewTarget.GetPower<HardenedShellPower>()?.DisplayAmount ?? 0; // ModifyHpLostBeforeOstyLate (ticks down in AfterDamageReceived)
+            int intangibleCap = preview.PreviewTarget.HasPower<IntangiblePower>() ? 1 : 0; // ModifyHpLostAfterOsty (uses ModifyDamageCap for display purposes)
+            int slipperyAmount = preview.PreviewTarget.GetPowerAmount<SlipperyPower>(); // ModifyHpLostAfterOsty (ticks down in AfterDamageReceived)
+            bool haveTheBoot = preview.Card.Owner.Relics.Any(relic => relic is TheBoot);
+            int bootDamage = haveTheBoot ? 5 : 0; // ModifyHpLostAfterOstyLate
+            int flutterAmount = preview.PreviewTarget.GetPowerAmount<FlutterPower>(); // AfterDamageReceived
+
+            foreach (IDamageSource damageSource in DamageSources(preview))
+            {
+                int damage = (int)damageSource.Damage;
+
+                if (hardToKillCap > 0)
+                {
+                    damage = Math.Min(damage, hardToKillCap);
+                }
+
+                if (hardenedShell != null)
+                {
+                    damage = Math.Min(damage, hardenedShellAmount);
+                    hardenedShellAmount -= damage;
+                }
+
+                if (intangibleCap > 0)
+                {
+                    damage = Math.Min(damage, intangibleCap);
+                }
+
+                if (slipperyAmount > 0 && damage > 0)
+                {
+                    damage = 1;
+                    slipperyAmount--;
+                }
+
+                if (bootDamage > 0 && damage > 0 && damageSource.Props.IsPoweredAttack())
+                {
+                    damage = Math.Max(bootDamage, damage);
+                }
+
+                if (flutterAmount > 0 && damage > 0 && damageSource.Props.IsPoweredAttack())
+                {
+                    flutterAmount--;
+                    if (flutterAmount == 0)
+                    {
+                        preview.CardDamageSource.Damage = (int)(preview.CardDamageSource.Damage * 2); // Remove the 50% damage reduction of Flutter
+                    }
+                }
+
+                totalDamage += damage;
+            }
+        }
+        else
+        {
+            totalDamage = (int)preview.CardDamageSource.Damage * preview.CardDamageSource.HitCount; // When card is in sitting hand (not hovering a target), or there are multiple targets
+        }
+
+        return totalDamage;
+    }
+
+    private static IEnumerable<IDamageSource> DamageSources(IDamagePreview preview)
+    {
+        IDamageSource? attackDamageSource = preview.CardDamageSource;
+
+        if (attackDamageSource != null)
+        {
+            foreach (IDamageSource source in AfterHitListeners.Concat(AfterAttackListeners))
+            {
+                source.Initialize(preview, isTopLevel: true);
+            }
+
+            while (attackDamageSource.HitsRemaining > 0)
+            {
+                bool isFirstHit = attackDamageSource.HitsRemaining == attackDamageSource.HitCount;
+
+                attackDamageSource.HitsRemaining--;
+                yield return attackDamageSource;
+
+                foreach (IDamageSource previewSource in DamageSources(preview, attackDamageSource, AfterHitListeners, isTopLevel: isFirstHit))
+                {
+                    yield return previewSource;
+                }
+            }
+
+            foreach (IDamageSource previewSource in DamageSources(preview, attackDamageSource, AfterAttackListeners, isTopLevel: true))
+            {
+                yield return previewSource;
+            }
+        }
+    }
+
+    private static IEnumerable<IDamageSource> DamageSources(IDamagePreview preview, IDamageSource previousDamageSource, IEnumerable<IDamageSource> listeners, bool isTopLevel)
+    {
+        foreach (IDamageSource listener in listeners)
+        {
+            IDamageSource source = isTopLevel ? listener : listener.GetNewInstance(preview, isTopLevel);
+            if (source.ShouldTriggerFrom(previousDamageSource))
+            {
+                while (source.HitsRemaining > 0)
+                {
+                    source.HitsRemaining--;
+                    yield return source;
+
+                    foreach (IDamageSource nestedListener in DamageSources(preview, source, listeners, isTopLevel: false))
+                    {
+                        yield return nestedListener;
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /// <summary>
     /// Register the given <see cref="CardModel"/> to use the supplied <paramref name="hitCountVarName"/> when searching for it's hitcount var.
@@ -156,7 +330,7 @@ public static class PreviewManager
     }
 
     /// <summary>
-    /// Creates a factory method to create a <see cref="DamagePreview"/> for cards that hit X times (the X cost wont resolve until played, so can't use the card's built in calculation).
+    /// Creates a factory method used to create a <see cref="DamagePreview"/> for cards that hit X times (the X cost wont resolve until played, so can't use the card's built in calculation).
     /// </summary>
     /// <typeparam name="T">A specific <see cref="CardModel"/>, or an <see langword="interface"/> that one or more cards implement. Any other type will have no effect.</typeparam>
     /// <param name="usesEnergy">Whether the X cost is for energy or stars.</param>
@@ -173,182 +347,58 @@ public static class PreviewManager
     }
 
     /// <summary>
-    /// Add an <see cref="IDamagePreviewInitializer"/> that will be run once at the start of a calculation.
+    /// Add an <see cref="IPreviewInitializer"/> that will be run once at the start of a calculation. Use this to modify the damage or hit count of an attack.
     /// </summary>
-    /// <remarks>Use this to modify the damage or hit count of an attack.</remarks>
-    public static void AddBeforeAttackInitializer(IDamagePreviewInitializer initializer)
+    /// <param name="initializer">The <see cref="IPreviewInitializer"/> to add.</param>
+    public static void AddBeforeAttackInitializer(IPreviewInitializer initializer)
     {
         BeforeAttackInitializers.Add(initializer);
     }
 
-    /// <summary>
-    /// Add an <see cref="IDamagePreviewSource"/> that will be probed after every instance of damage during the calculation.
-    /// </summary>
-    public static void AddAfterHitListener(IDamagePreviewSource damageSource)
+    /// <inheritdoc cref="AddBeforeAttackInitializer(IPreviewInitializer)"/>
+    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="initializer"/>'s local <see cref="IPreviewInitializer"/> must have already been registered.</remarks>
+    /// <param name="initializer">The <see cref="IPreviewInitializer"/> to add.</param>
+    public static void AddRegisteredBeforeAttackInitializer(object initializer)
     {
-        AfterHitListeners.Add(damageSource);
+        AddBeforeAttackInitializer(DynamicWrapper.CreateWrapper<IPreviewInitializer>(initializer));
     }
 
     /// <summary>
-    /// Add an <see cref="IDamagePreviewSource"/> that will be probed only once, after all hits of the attack have been processed.
+    /// Add an <see cref="IDamageSource"/> that will be probed after every instance of damage during the calculation.
     /// </summary>
-    public static void AddAfterAttackListener(IDamagePreviewSource damageSource)
+    /// <param name="listener">The <see cref="IDamageSource"/> to add.</param>
+    public static void AddAfterHitListener(IDamageSource listener)
     {
-        AfterAttackListeners.Add(damageSource);
+        AfterHitListeners.Add(listener);
+    }
+
+    /// <inheritdoc cref="AddAfterHitListener(IDamageSource)"/>
+    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="listener"/>'s local <see cref="IDamagePreview"/> must have already been registered.</remarks>
+    /// <param name="listener">The <see cref="IDamageSource"/> to add.</param>
+    public static void AddRegisteredAfterHitListener(object listener)
+    {
+        AddAfterHitListener(DynamicWrapper.CreateWrapper<IDamageSource>(listener));
+    }
+
+    /// <inheritdoc cref="AddAfterHitListener(IDamageSource)"/>
+    public static void AddAfterAttackListener(IDamageSource listener)
+    {
+        AfterAttackListeners.Add(listener);
+    }
+
+    /// <inheritdoc cref="AddRegisteredAfterHitListener(object)"/>
+    public static void AddRegisteredAfterAttackListener(object listener)
+    {
+        AddAfterAttackListener(DynamicWrapper.CreateWrapper<IDamageSource>(listener));
     }
 
     /// <summary>
-    /// Prepares the suppliedvar for final calculations. Should be called from <see cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>.
+    /// Add an <see cref="IHitCountModifierForDisplay"/> to be processed by the relevant hook.
     /// </summary>
-    /// <inheritdoc cref="DynamicVar.UpdateCardPreview(CardModel, CardPreviewMode, Creature?, bool)"/>
-    public static void UpdateDamagePreview(IDamagePreview preview, Creature? target)
+    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="type"/>'s local <see cref="IHitCountModifierForDisplay"/> must have already been registered.</remarks>
+    /// <param name="type">The local type of the <see cref="IHitCountModifierForDisplay"/> that you are using.</param>
+    public static void AddRegisteredHitCountModifier(Type type)
     {
-        preview.PreviewTarget = target;
-        preview.Accuracy = Accuracy.Accurate;
-        preview.ShouldDisplayValue = true;
-
-        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, target, preview.GetHitCount(target));
-        preview.CardDamageSource = new DefaultDamagePreviewSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount);
-
-        preview.PreviewValue = CalculateTotalDamage(preview);
-    }
-
-    /// <summary>
-    /// Performs the final damage calculation.
-    /// <br/>Takes into account base game interactions such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>, and any custom damage sources supplied by other mods.
-    /// </summary>
-    /// <param name="preview">The var to calculate.</param>
-    /// <returns>The total calculated damage, after all modifiers have been applied.</returns>
-    public static int CalculateTotalDamage(IDamagePreview preview)
-    {
-        if (!preview.Card.IsInCombat || preview.CardDamageSource == null)
-        {
-            preview.ShouldDisplayValue = false;
-            return -1;
-        }
-
-        foreach (IDamagePreviewInitializer initializer in BeforeAttackInitializers)
-        {
-            if (!initializer.Initialize(preview))
-            {
-                preview.ShouldDisplayValue = false;
-                return -1;
-            }
-        }
-
-        int totalDamage = 0;
-
-        if (preview.PreviewTarget != null)
-        {
-            int hardToKillCap = preview.PreviewTarget.GetPowerAmount<HardToKillPower>(); // ModifyDamageCap
-            HardenedShellPower? hardenedShell = preview.PreviewTarget.GetPower<HardenedShellPower>();
-            int hardenedShellAmount = preview.PreviewTarget.GetPower<HardenedShellPower>()?.DisplayAmount ?? 0; // ModifyHpLostBeforeOstyLate (ticks down in AfterDamageReceived)
-            int intangibleCap = preview.PreviewTarget.HasPower<IntangiblePower>() ? 1 : 0; // ModifyHpLostAfterOsty (uses ModifyDamageCap for display purposes)
-            int slipperyAmount = preview.PreviewTarget.GetPowerAmount<SlipperyPower>(); // ModifyHpLostAfterOsty (ticks down in AfterDamageReceived)
-            bool haveTheBoot = preview.Card.Owner.Relics.Any(relic => relic is TheBoot);
-            int bootDamage = haveTheBoot ? 5 : 0; // ModifyHpLostAfterOstyLate
-            int flutterAmount = preview.PreviewTarget.GetPowerAmount<FlutterPower>(); // AfterDamageReceived
-
-            foreach (IDamagePreviewSource damageSource in DamageSources(preview))
-            {
-                int damage = (int)damageSource.Damage;
-
-                if (hardToKillCap > 0)
-                {
-                    damage = Math.Min(damage, hardToKillCap);
-                }
-
-                if (hardenedShell != null)
-                {
-                    damage = Math.Min(damage, hardenedShellAmount);
-                    hardenedShellAmount -= damage;
-                }
-
-                if (intangibleCap > 0)
-                {
-                    damage = Math.Min(damage, intangibleCap);
-                }
-
-                if (slipperyAmount > 0 && damage > 0)
-                {
-                    damage = 1;
-                    slipperyAmount--;
-                }
-
-                if (bootDamage > 0 && damage > 0 && damageSource.Props.IsPoweredAttack())
-                {
-                    damage = Math.Max(bootDamage, damage);
-                }
-
-                if (flutterAmount > 0 && damage > 0 && damageSource.Props.IsPoweredAttack())
-                {
-                    flutterAmount--;
-                    if (flutterAmount == 0)
-                    {
-                        preview.CardDamageSource.Damage = (int)(preview.CardDamageSource.Damage * 2); // Remove the 50% damage reduction of Flutter
-                    }
-                }
-
-                totalDamage += damage;
-            }
-        }
-        else
-        {
-            totalDamage = (int)preview.CardDamageSource.Damage * preview.CardDamageSource.HitCount; // When card is in sitting hand (not hovering a target), or there are multiple targets
-        }
-
-        return totalDamage;
-    }
-
-    private static IEnumerable<IDamagePreviewSource> DamageSources(IDamagePreview preview)
-    {
-        DefaultDamagePreviewSource? attackDamageSource = preview.CardDamageSource;
-
-        if (attackDamageSource != null)
-        {
-            foreach (IDamagePreviewSource source in AfterHitListeners.Concat(AfterAttackListeners))
-            {
-                source.Initialize(preview, isTopLevel: true);
-            }
-
-            while (attackDamageSource.HitsRemaining > 0)
-            {
-                bool isFirstHit = attackDamageSource.HitsRemaining == attackDamageSource.HitCount;
-
-                attackDamageSource.HitsRemaining--;
-                yield return attackDamageSource;
-
-                foreach (IDamagePreviewSource previewSource in DamageSources(preview, attackDamageSource, AfterHitListeners, isTopLevel: isFirstHit))
-                {
-                    yield return previewSource;
-                }
-            }
-
-            foreach (IDamagePreviewSource previewSource in DamageSources(preview, attackDamageSource, AfterAttackListeners, isTopLevel: true))
-            {
-                yield return previewSource;
-            }
-        }
-    }
-
-    private static IEnumerable<IDamagePreviewSource> DamageSources(IDamagePreview preview, IDamagePreviewSource previousDamageSource, IEnumerable<IDamagePreviewSource> listeners, bool isTopLevel)
-    {
-        foreach (IDamagePreviewSource listener in listeners)
-        {
-            IDamagePreviewSource source = isTopLevel ? listener : listener.GetNewInstance(preview, isTopLevel);
-            if (source.ShouldTriggerFrom(previousDamageSource))
-            {
-                while (source.HitsRemaining > 0)
-                {
-                    source.HitsRemaining--;
-                    yield return source;
-
-                    foreach (IDamagePreviewSource nestedListener in DamageSources(preview, source, listeners, isTopLevel: false))
-                    {
-                        yield return nestedListener;
-                    }
-                }
-            }
-        }
+        AdditionalHitCountModifierTypes.Add(type);
     }
 }

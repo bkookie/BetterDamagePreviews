@@ -1,4 +1,4 @@
-﻿using BetterDamagePreviews.PreviewSources;
+﻿using BetterDamagePreviews.DamageSources;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
@@ -10,7 +10,7 @@ namespace BetterDamagePreviews.Preview;
 /// <summary>
 /// Links to a <see cref="DamageVar"/> and facilitates additional calculations when previewing it's damage total (including various damage modifiers such as <see cref="SlipperyPower"/> or <see cref="FlutterPower"/>).
 /// </summary>
-/// <remarks>To calculate more complex interactions, such as additional damage effects from the card itself or other powers, requires the use of one or more <see cref="IDamagePreviewSource"/>.</remarks>
+/// <remarks>To calculate more complex interactions, such as additional damage effects from the card itself or other powers, requires the use of one or more <see cref="IDamageSource"/>.</remarks>
 public interface IDamagePreview
 {
     /// <summary>
@@ -51,7 +51,7 @@ public interface IDamagePreview
     /// <summary>
     /// The main damage source of the card.
     /// </summary>
-    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
+    public IDamageSource? CardDamageSource { get; set; }
 
     /// <summary>
     /// Performs the additional calculations required to display a more accurate damage preview value.

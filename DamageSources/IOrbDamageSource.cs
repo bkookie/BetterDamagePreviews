@@ -1,6 +1,6 @@
 ﻿using MegaCrit.Sts2.Core.Models;
 
-namespace BetterDamagePreviews.PreviewSources;
+namespace BetterDamagePreviews.DamageSources;
 
 /// <summary>
 /// A damage source from an orb.

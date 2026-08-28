@@ -1,4 +1,4 @@
-﻿using BetterDamagePreviews.PreviewSources;
+﻿using BetterDamagePreviews.DamageSources;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Models;
@@ -64,5 +64,5 @@ public class DamagePreview : IDamagePreview
     public int PreviewValue { get; set; }
 
     /// <inheritdoc/>
-    public DefaultDamagePreviewSource? CardDamageSource { get; set; }
+    public IDamageSource? CardDamageSource { get; set; }
 }

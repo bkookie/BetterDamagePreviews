@@ -4,24 +4,24 @@ using MegaCrit.Sts2.Core.Models.Cards;
 using MegaCrit.Sts2.Core.Models.Orbs;
 using MegaCrit.Sts2.Core.ValueProps;
 
-namespace BetterDamagePreviews.PreviewSources;
+namespace BetterDamagePreviews.DamageSources;
 
 /// <summary>
 /// Calculates the lightning damage that all Lightning Orbs will do after the <see cref="TeslaCoil"/> card has been played.
 /// </summary>
-public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDamageSource
+public sealed class TeslaCoilDamageSource : IDamageSource, IOrbDamageSource
 {
-    internal TeslaCoilDamagePreviewSource() { }
+    internal TeslaCoilDamageSource() { }
 
-    private TeslaCoilDamagePreviewSource(IDamagePreview preview, bool isTopLevel)
+    private TeslaCoilDamageSource(IDamagePreview preview, bool isTopLevel)
     {
         Initialize(preview, isTopLevel);
     }
 
     /// <inheritdoc/>
-    public IDamagePreviewSource GetNewInstance(IDamagePreview preview, bool isTopLevel)
+    public IDamageSource GetNewInstance(IDamagePreview preview, bool isTopLevel)
     {
-        return new TeslaCoilDamagePreviewSource(preview, isTopLevel);
+        return new TeslaCoilDamageSource(preview, isTopLevel);
     }
 
     /// <inheritdoc/>
@@ -39,10 +39,18 @@ public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDam
     public OrbModel? SourceOrb => SourceModel as OrbModel;
 
     /// <inheritdoc/>
-    public decimal Damage => ((LightningOrb?)SourceOrb)?.PassiveVal ?? 0;
+    public decimal Damage
+    {
+        get => ((LightningOrb?)SourceOrb)?.PassiveVal ?? 0;
+        set => throw new NotSupportedException();
+    }
 
     /// <inheritdoc/>
-    public int HitCount => SourceOrb?.Owner.PlayerCombatState?.OrbQueue.Orbs.Count(orb => orb is LightningOrb) ?? 0;
+    public int HitCount
+    {
+        get => SourceOrb?.Owner.PlayerCombatState?.OrbQueue.Orbs.Count(orb => orb is LightningOrb) ?? 0;
+        set => throw new NotSupportedException();
+    }
 
     /// <inheritdoc/>
     public int HitsRemaining { get; set; }
@@ -51,7 +59,7 @@ public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDam
     public ValueProp Props => ValueProp.Unpowered;
 
     /// <inheritdoc/>
-    public bool ShouldTriggerFrom(IDamagePreviewSource previousDamageSource)
+    public bool ShouldTriggerFrom(IDamageSource previousDamageSource)
     {
         if (previousDamageSource.SourceModel is TeslaCoil)
         {
@@ -62,7 +70,7 @@ public sealed class TeslaCoilDamagePreviewSource : IDamagePreviewSource, IOrbDam
     }
 
     /// <inheritdoc/>
-    public bool IsPassiveDamage {  get; private set; }
+    public bool IsPassiveDamage { get; private set; }
 
     /// <inheritdoc/>
     public override string ToString()

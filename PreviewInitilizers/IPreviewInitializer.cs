@@ -5,7 +5,7 @@ namespace BetterDamagePreviews.PreviewInitilizers;
 /// <summary>
 /// Performs some initialization before running the calculations.
 /// </summary>
-public interface IDamagePreviewInitializer
+public interface IPreviewInitializer
 {
     /// <summary>
     /// Perform any initialization before beginning the calculation. Called only once per calculation.

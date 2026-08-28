@@ -1,5 +1,4 @@
-﻿using BetterDamagePreviews.Hooks;
-using BetterDamagePreviews.Preview;
+﻿using BetterDamagePreviews.Preview;
 using MegaCrit.Sts2.Core.Entities.Cards;
 
 namespace BetterDamagePreviews.PreviewInitilizers;
@@ -7,7 +6,7 @@ namespace BetterDamagePreviews.PreviewInitilizers;
 /// <summary>
 /// Modifies the hit count of various base game nultihit cards before calculating their damage.
 /// </summary>
-public sealed class DefaultPreviewInitializer : IDamagePreviewInitializer
+public sealed class DefaultPreviewInitializer : IPreviewInitializer
 {
     internal DefaultPreviewInitializer() { }
 
@@ -23,12 +22,5 @@ public sealed class DefaultPreviewInitializer : IDamagePreviewInitializer
         }
 
         return true;
-    }
-
-    private static void RunHookAndSetHitCount(IDamagePreview preview, int hitCount)
-    {
-        hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, preview.PreviewTarget, hitCount);
-        preview.CardDamageSource!.HitCount = hitCount;
-        preview.CardDamageSource!.HitsRemaining = hitCount;
     }
 }
