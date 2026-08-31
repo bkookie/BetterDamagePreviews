@@ -22,7 +22,7 @@ internal record HitCountVarName(string HitCountName, string CalculatedHitCountNa
 public static class PreviewManager
 {
     internal static readonly Dictionary<Type, HitCountVarName> CardHitCountVarNameLookup = []; // For cards that dont use "Repeat" for their hitcount var name, you can specify the actual name to use here.
-    internal static readonly Dictionary<Type, Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview>> CardPreviewFactory = [];
+    internal static readonly Dictionary<Type, Func<DynamicVar, Func<Creature?, int>, CardModel, IDamagePreview>> CardPreviewFactory = [];
     internal static readonly Dictionary<DynamicVar, IDamagePreview> PreviewCache = [];
     internal static readonly Dictionary<DynamicVar, IDamagePreview> HitCountVarLookup = []; // Allows the hit count preview value to update on the card as well as the damage. Has no effect if the card does not preview the hit count.
 
@@ -316,7 +316,7 @@ public static class PreviewManager
     /// <para/>The <see cref="CardModel"/> provided to the <paramref name="factory"/> will always be of type <typeparamref name="T"/>.
     /// </remarks>
     /// <typeparam name="T">A specific <see cref="CardModel"/>, or an <see langword="interface"/> that one or more cards implement. Any other type will have no effect.</typeparam>
-    public static void AddPreviewFactory<T>(Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview> factory)
+    public static void AddPreviewFactory<T>(Func<DynamicVar, Func<Creature?, int>, CardModel, IDamagePreview> factory)
     {
         CardPreviewFactory.Add(typeof(T), factory);
     }

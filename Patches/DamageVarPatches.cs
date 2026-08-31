@@ -6,11 +6,27 @@ using MegaCrit.Sts2.Core.Models;
 
 namespace BetterDamagePreviews.Patches;
 
-[HarmonyPatch(typeof(DamageVar), nameof(DamageVar.UpdateCardPreview))]
+[HarmonyPatch]
 public static class UpdateCardPreviewPatch
 {
+    [HarmonyPatch(typeof(DamageVar), nameof(DamageVar.UpdateCardPreview))]
     [HarmonyPostfix]
-    private static void PostFix(DamageVar __instance, CardModel card, Creature target)
+    private static void Postfix_DamageVar(DamageVar __instance, CardModel card, Creature target)
+    {
+        Helper.Postfix(__instance, card, target);
+    }
+
+    [HarmonyPatch(typeof(CalculatedDamageVar), nameof(CalculatedDamageVar.UpdateCardPreview))]
+    [HarmonyPostfix]
+    private static void Postfix_CalculatedDamageVar(CalculatedDamageVar __instance, CardModel card, Creature target)
+    {
+        Helper.Postfix(__instance, card, target);
+    }
+}
+
+internal static class Helper
+{
+    public static void Postfix(DynamicVar __instance, CardModel card, Creature target)
     {
         if (!PreviewManager.PreviewCache.TryGetValue(__instance, out IDamagePreview? preview))
         {
@@ -53,7 +69,7 @@ public static class UpdateCardPreviewPatch
 
                 if (cardType == lookupType || lookupType.IsInterface && cardType.IsAssignableTo(lookupType))
                 {
-                    Func<DamageVar, Func<Creature?, int>, CardModel, IDamagePreview> factory = kvp.Value;
+                    Func<DynamicVar, Func<Creature?, int>, CardModel, IDamagePreview> factory = kvp.Value;
                     preview = factory(__instance, PreviewManager.HitCountFromDynamicVarFunc(hitCountVar), card);
                     break;
                 }

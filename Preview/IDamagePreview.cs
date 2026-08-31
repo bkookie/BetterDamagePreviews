@@ -14,9 +14,9 @@ namespace BetterDamagePreviews.Preview;
 public interface IDamagePreview
 {
     /// <summary>
-    /// The <see cref="DamageVar"/> that this is linked to.
+    /// The <see cref="DamageVar"/> or <see cref="CalculatedDamageVar"/> that this is linked to.
     /// </summary>
-    public DamageVar LinkedDamageVar { get; }
+    public DynamicVar LinkedDamageVar { get; }
 
     /// <summary>
     /// A function accepting a <see cref="Creature"/> target, and returning a hit count.
