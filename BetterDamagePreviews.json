@@ -3,7 +3,7 @@
   "name": "Better Damage Previews",
   "author": "chunker",
   "description": "Display a more accurate damage preview value, summing multi-hit attacks, considering effects like Slippery and Flutter, and other card-specific effects.\n\nWorks with all base game cards, and any modded cards that follow base game conventions (doesn't require patching individual cards).\n\nAlso provides an API to add additional support for modded cards and to define custom calculations.",
-  "version": "v1.0.0",
+  "version": "v1.1.0",
   "has_pck": true,
   "has_dll": true,
   "affects_gameplay": false,

@@ -1,7 +1,6 @@
 ﻿using BetterDamagePreviews.DamageSources;
 using BetterDamagePreviews.Hooks;
 using BetterDamagePreviews.PreviewInitilizers;
-using BetterDamagePreviews.Wrappers;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Hooks;
@@ -30,7 +29,6 @@ public static class PreviewManager
     internal static readonly HashSet<IPreviewInitializer> BeforeAttackInitializers = [];
     internal static readonly HashSet<IDamageSource> AfterHitListeners = [];
     internal static readonly HashSet<IDamageSource> AfterAttackListeners = [];
-    internal static readonly HashSet<Type> AdditionalHitCountModifierTypes = [];
 
     /// <summary>
     /// A function that accepts a <see cref="DynamicVar"/> and returns another function, which accepts a target <see cref="Creature"/> and returns a hit count.
@@ -346,6 +344,8 @@ public static class PreviewManager
         }, card));
     }
 
+    // Before Attack
+
     /// <summary>
     /// Add an <see cref="IPreviewInitializer"/> that will be run once at the start of a calculation. Use this to modify the damage or hit count of an attack.
     /// </summary>
@@ -355,13 +355,7 @@ public static class PreviewManager
         BeforeAttackInitializers.Add(initializer);
     }
 
-    /// <inheritdoc cref="AddBeforeAttackInitializer(IPreviewInitializer)"/>
-    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="initializer"/>'s local <see cref="IPreviewInitializer"/> must have already been registered.</remarks>
-    /// <param name="initializer">The <see cref="IPreviewInitializer"/> to add.</param>
-    public static void AddRegisteredBeforeAttackInitializer(object initializer)
-    {
-        AddBeforeAttackInitializer(DynamicWrapper.CreateWrapper<IPreviewInitializer>(initializer));
-    }
+    // After Hit
 
     /// <summary>
     /// Add an <see cref="IDamageSource"/> that will be probed after every instance of damage during the calculation.
@@ -372,33 +366,14 @@ public static class PreviewManager
         AfterHitListeners.Add(listener);
     }
 
-    /// <inheritdoc cref="AddAfterHitListener(IDamageSource)"/>
-    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="listener"/>'s local <see cref="IDamagePreview"/> must have already been registered.</remarks>
-    /// <param name="listener">The <see cref="IDamageSource"/> to add.</param>
-    public static void AddRegisteredAfterHitListener(object listener)
-    {
-        AddAfterHitListener(DynamicWrapper.CreateWrapper<IDamageSource>(listener));
-    }
+    // After Attack
 
-    /// <inheritdoc cref="AddAfterHitListener(IDamageSource)"/>
+    /// <summary>
+    /// Add an <see cref="IDamageSource"/> that will be probed once, after all hits of an attack have resolved.
+    /// </summary>
+    /// <param name="listener">The <see cref="IDamageSource"/> to add.</param>
     public static void AddAfterAttackListener(IDamageSource listener)
     {
         AfterAttackListeners.Add(listener);
-    }
-
-    /// <inheritdoc cref="AddRegisteredAfterHitListener(object)"/>
-    public static void AddRegisteredAfterAttackListener(object listener)
-    {
-        AddAfterAttackListener(DynamicWrapper.CreateWrapper<IDamageSource>(listener));
-    }
-
-    /// <summary>
-    /// Add an <see cref="IHitCountModifierForDisplay"/> to be processed by the relevant hook.
-    /// </summary>
-    /// <remarks>This method should only be called if you are using this mod as an optional dependency, which requires the use of wrappers to communicate. The type of <paramref name="type"/>'s local <see cref="IHitCountModifierForDisplay"/> must have already been registered.</remarks>
-    /// <param name="type">The local type of the <see cref="IHitCountModifierForDisplay"/> that you are using.</param>
-    public static void AddRegisteredHitCountModifier(Type type)
-    {
-        AdditionalHitCountModifierTypes.Add(type);
     }
 }
