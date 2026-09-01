@@ -22,6 +22,13 @@ public static class UpdateCardPreviewPatch
     {
         Helper.Postfix(__instance, card, target);
     }
+
+    [HarmonyPatch(typeof(CalculatedVar), "GetBaseValueForIConvertible")]
+    [HarmonyPostfix]
+    private static void Postfix_GetBaseValueForIConvertible(CalculatedVar __instance, ref decimal __result)
+    {
+        __result = __instance.PreviewValue; // for plural formatter
+    }
 }
 
 internal static class Helper
