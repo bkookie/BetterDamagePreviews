@@ -11,10 +11,7 @@ namespace BetterDamagePreviews.DamageSources;
 internal sealed class DefaultDamageSource : IDamageSource
 {
     /// <inheritdoc cref="DefaultDamageSource(AbstractModel?, decimal, int, ValueProp)"/>
-    internal DefaultDamageSource(AbstractModel? source, decimal damage) : this(source, damage, hitCount: 1) { }
-
-    /// <inheritdoc cref="DefaultDamageSource(AbstractModel?, decimal, int, ValueProp)"/>
-    internal DefaultDamageSource(AbstractModel? source, decimal damage, int hitCount) : this(source, damage, hitCount, ValueProp.Move) { }
+    internal DefaultDamageSource(AbstractModel? source, decimal damage, ValueProp props) : this(source, damage, hitCount: 1, props) { }
 
     /// <summary>
     /// Creates a new <see cref="DefaultDamageSource"/>.
@@ -33,10 +30,10 @@ internal sealed class DefaultDamageSource : IDamageSource
     }
 
     /// <inheritdoc/>
-    public IDamageSource GetNewInstance(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play.");
+    public IDamageSource GetNewInstance(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial damage source of a card play.");
 
     /// <inheritdoc/>
-    public void Initialize(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial attack from a card play.");
+    public void Initialize(IDamagePreview preview, bool isTopLevel) => throw new InvalidOperationException("This class should not be used as a listener. Only used for the initial damage source of a card play.");
 
     /// <inheritdoc/>
     public AbstractModel? SourceModel { get; private set; }

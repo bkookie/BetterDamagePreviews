@@ -86,7 +86,8 @@ public static class PreviewManager
         preview.ShouldDisplayValue = true;
 
         int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, target, preview.GetHitCount(target));
-        preview.CardDamageSource = new DefaultDamageSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount);
+        ValueProp props = preview.LinkedDamageVar is DamageVar damageVar ? damageVar.Props : preview.LinkedDamageVar is CalculatedDamageVar calculatedDamageVar ? calculatedDamageVar.Props : default;
+        preview.CardDamageSource = new DefaultDamageSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount, props);
 
         preview.PreviewValue = CalculateTotalDamage(preview);
     }
