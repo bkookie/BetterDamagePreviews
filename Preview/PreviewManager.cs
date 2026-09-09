@@ -41,26 +41,26 @@ public static class PreviewManager
     static PreviewManager()
     {
         AddHitCountVarNameLookup<MadScience>(MadScience.violenceHitsKey, DynamicVarType.Normal);
-        AddHitCountVarNameLookup<TearAsunder>(CalculatedVar.DefaultHitCountName, DynamicVarType.Calculated); // TearAsunder defines both a RepeatVar and a CalculatedVar (only the CalculatedVar is used).
+        //AddHitCountVarNameLookup<TearAsunder>(CalculatedVar.DefaultHitCountName, DynamicVarType.Calculated); // TearAsunder defines both a RepeatVar and a CalculatedVar (only the CalculatedVar is used).
 
-        AddPreviewFactory<AstralPulse>(2);
-        AddPreviewFactory<DaggerSpray>(2);
-        AddPreviewFactory<Refract>(2);
-        AddPreviewFactory<Maul>(2);
-        AddPreviewFactory<Thrash>(2);
-        AddPreviewFactory<TwinStrike>(2);
-        AddPreviewFactory<Uproar>(2);
+        //AddPreviewFactory<AstralPulse>(2);
+        //AddPreviewFactory<DaggerSpray>(2);
+        //AddPreviewFactory<Refract>(2);
+        //AddPreviewFactory<Maul>(2);
+        //AddPreviewFactory<Thrash>(2);
+        //AddPreviewFactory<TwinStrike>(2);
+        //AddPreviewFactory<Uproar>(2);
 
         AddPreviewFactory<Dismantle>((damageVar, _, card) => new DamagePreview(damageVar, target => target?.HasPower<VulnerablePower>() == true ? 2 : 1, card));
         AddPreviewFactory<FiendFire>((damageVar, _, card) => new DamagePreview(damageVar, _ => PileType.Hand.GetPile(card.Owner).Cards.Count - (card.Pile?.Type == PileType.Hand ? 1 : 0), card)); // Dont count itself, it wont be in hand when actually played
         AddPreviewFactory<MadScience>((damageVar, hitCountFunc, card) => new DamagePreview(damageVar, target => card is MadScience madScience && madScience.Type == CardType.Attack && madScience.TinkerTimeRider == MegaCrit.Sts2.Core.Models.Events.TinkerTime.RiderEffect.Violence ? hitCountFunc(target) : 1, card));
 
-        AddPreviewFactoryForXHitCountCard<Eradicate>(true);
+        //AddPreviewFactoryForXHitCountCard<Eradicate>(true);
         AddPreviewFactoryForXHitCountCard<HeavenlyDrill>(true, (card, xValue) => xValue >= 4 ? xValue * 2 : xValue);
-        AddPreviewFactoryForXHitCountCard<Skewer>(true);
-        AddPreviewFactoryForXHitCountCard<Stardust>(false);
-        AddPreviewFactoryForXHitCountCard<Volley>(true);
-        AddPreviewFactoryForXHitCountCard<Whirlwind>(true);
+        //AddPreviewFactoryForXHitCountCard<Skewer>(true);
+        //AddPreviewFactoryForXHitCountCard<Stardust>(false);
+        //AddPreviewFactoryForXHitCountCard<Volley>(true);
+        //AddPreviewFactoryForXHitCountCard<Whirlwind>(true);
 
         BeforeAttackInitializers.Add(new DefaultPreviewInitializer());
         AfterAttackListeners.Add(new TeslaCoilDamageSource());

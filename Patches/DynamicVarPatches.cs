@@ -15,17 +15,21 @@ public static partial class DamagePreviewPatch
 
         if (PreviewManager.PreviewCache.TryGetValue(__instance, out IDamagePreview? preview))
         {
+            if (preview.Accuracy == Accuracy.Unknown)
+                return;
+
             int totalDamage = preview.PreviewValue;
-            if (preview.ShouldDisplayValue && totalDamage >= 0 && totalDamage != (int)__instance.PreviewValue)
+            if (preview.ShouldDisplayValue && totalDamage >= 0 && totalDamage != (int)__instance.PreviewValue || preview.Accuracy != Accuracy.Accurate)
             {
-                string accuracyAdendum = preview.Accuracy switch
+                string display = preview.Accuracy switch
                 {
-                    Accuracy.Accurate => "",
-                    Accuracy.Approximate => "?",
-                    Accuracy.Minimum => "+",
-                    _ => ""
+                    Accuracy.Accurate => $"{totalDamage}",
+                    Accuracy.Minimum => $"{totalDamage}+",
+                    Accuracy.Approximate => $"{totalDamage}?",
+                    Accuracy.Unknown => "?",
+                    _ => "?"
                 };
-                __result = $"{__result} ([orange]{totalDamage}{accuracyAdendum}[/orange])";
+                __result = $"{__result} ([orange]{display}[/orange])";
             }
         }
         else if (PreviewManager.HitCountVarLookup.TryGetValue(__instance, out preview) && preview.CardDamageSource != null)

@@ -11,12 +11,17 @@ public enum Accuracy
     Accurate,
 
     /// <summary>
+    /// The actual damage will be at least as much as calculated, but may be more.
+    /// </summary>
+    Minimum,
+
+    /// <summary>
     /// The actual damage may be more or less than the calculated damage once the card is played.
     /// </summary>
     Approximate,
 
     /// <summary>
-    /// The actual damage will be at least as much as calculated, but may be more.
+    /// The actual damage is completely unknown.
     /// </summary>
-    Minimum
+    Unknown
 }
