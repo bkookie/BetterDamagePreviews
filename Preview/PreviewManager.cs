@@ -1,6 +1,8 @@
 ﻿using BetterDamagePreviews.DamageSources;
 using BetterDamagePreviews.Hooks;
 using BetterDamagePreviews.PreviewInitilizers;
+using MegaCrit.Sts2.Core.Combat;
+using MegaCrit.Sts2.Core.Combat.History.Entries;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Hooks;
@@ -53,6 +55,7 @@ public static class PreviewManager
 
         AddPreviewFactory<Dismantle>((damageVar, _, card) => new DamagePreview(damageVar, target => target?.HasPower<VulnerablePower>() == true ? 2 : 1, card));
         AddPreviewFactory<FiendFire>((damageVar, _, card) => new DamagePreview(damageVar, _ => PileType.Hand.GetPile(card.Owner).Cards.Count - (card.Pile?.Type == PileType.Hand ? 1 : 0), card)); // Dont count itself, it wont be in hand when actually played
+        AddPreviewFactory<Spite>((damageVar, _, card) => new DamagePreview(damageVar, _ => CombatManager.Instance.History.Entries.OfType<DamageReceivedEntry>().Any(e => e.HappenedThisTurn(card.CombatState) && e.Receiver == card.Owner.Creature && e.Result.UnblockedDamage > 0) ? card.DynamicVars.Repeat.IntValue : 1, card));
         AddPreviewFactory<MadScience>((damageVar, hitCountFunc, card) => new DamagePreview(damageVar, target => card is MadScience madScience && madScience.Type == CardType.Attack && madScience.TinkerTimeRider == MegaCrit.Sts2.Core.Models.Events.TinkerTime.RiderEffect.Violence ? hitCountFunc(target) : 1, card));
 
         //AddPreviewFactoryForXHitCountCard<Eradicate>(true);

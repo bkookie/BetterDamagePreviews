@@ -2,6 +2,7 @@
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
+using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Models;
 
 namespace BetterDamagePreviews.Patches;
@@ -33,6 +34,7 @@ public static class UpdateCardPreviewPatch
 
 internal static class Helper
 {
+    private static readonly HashSet<ModelId> LoggedCards = [];
     private static readonly HashSet<string> CommonHitCountVarNames = [];
 
     static Helper()
@@ -78,25 +80,52 @@ internal static class Helper
                 }
             }
 
-            if (multihitDetected)
+            if ((multihitDetected || errorMsg != null) && LoggedCards.Add(card.Id))
             {
-                string result;
-                if (constHitCount >= 0)
-                    result = constHitCount.ToString();
-                else if (hitCountVar != null)
-                    result = $"{hitCountVar.GetType().Name} \"{hitCountVar.Name}\"";
-                else if (dynamicVarType != null)
-                    result = $"WARNING: hitCountVar detected but not found: {dynamicVarType?.Name} \"{hitCountVarName ?? "<UnknownName>"}\"";
-                else if (hitCountVarName != null)
-                    result = $"WARNING: hitCountVar detected but not found: \"{hitCountVarName}\"";
-                else if (hitCountFunc != null)
-                    result = "Func";
-                else if (errorMsg != null)
-                    result = $"<Unknown> ({errorMsg})";
+                if (!multihitDetected)
+                {
+                    MainFile.Logger.LogMessage(LogLevel.Warn, $"Error reading card '{card.Title}': {errorMsg}", 1);
+                }
                 else
-                    result = "<Unknown>";
+                {
+                    LogLevel logLevel = LogLevel.Debug;
+                    string result;
 
-                MainFile.Logger.Info($"Detected multi-hit for {card.Title}: {result}");
+                    if (constHitCount >= 0)
+                    {
+                        result = constHitCount.ToString();
+                    }
+                    else if (hitCountVar != null)
+                    {
+                        result = $"{hitCountVar.GetType().Name} \"{hitCountVar.Name}\"";
+                    }
+                    else if (dynamicVarType != null)
+                    {
+                        logLevel = LogLevel.Warn;
+                        result = $"hitCountVar detected but not found: {dynamicVarType?.Name} \"{hitCountVarName ?? "<UnknownName>"}\"";
+                    }
+                    else if (hitCountVarName != null)
+                    {
+                        logLevel = LogLevel.Warn;
+                        result = $"hitCountVar detected but not found: \"{hitCountVarName}\"";
+                    }
+                    else if (hitCountFunc != null)
+                    {
+                        result = "Func";
+                    }
+                    else if (errorMsg != null)
+                    {
+                        logLevel = LogLevel.Warn;
+                        result = $"<Unknown> ({errorMsg})";
+                    }
+                    else
+                    {
+                        logLevel = LogLevel.Warn;
+                        result = "<Unknown>";
+                    }
+
+                    MainFile.Logger.LogMessage(logLevel, $"Detected multi-hit card '{card.Title}': {result}", 1);
+                }
             }
 
             foreach (var kvp in PreviewManager.CardPreviewFactory)

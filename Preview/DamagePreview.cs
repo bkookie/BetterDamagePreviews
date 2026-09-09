@@ -55,7 +55,11 @@ public class DamagePreview : IDamagePreview
     public Creature? PreviewTarget { get; set; }
 
     /// <inheritdoc/>
-    public Accuracy Accuracy { get; set; }
+    public Accuracy Accuracy
+    {
+        get;
+        set { if (value > field) field = value; }
+    }
 
     /// <inheritdoc/>
     public bool ShouldDisplayValue { get; set; }

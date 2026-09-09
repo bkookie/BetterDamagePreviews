@@ -56,6 +56,6 @@ internal sealed class DefaultDamageSource : IDamageSource
     /// <inheritdoc/>
     public override string ToString()
     {
-        return SourceModel?.ToString() ?? base.ToString() ?? "";
+        return $"{base.ToString()}, SourceModel = {SourceModel}";
     }
 }
