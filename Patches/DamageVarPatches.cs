@@ -52,7 +52,7 @@ internal static class Helper
         if (!PreviewManager.PreviewCache.TryGetValue(__instance, out IDamagePreview? preview))
         {
             DynamicVar? hitCountVar = null;
-            bool multihitDetected = CardILReader.TryDetectHitCount(card, out int constHitCount, out string? hitCountVarName, out Type? dynamicVarType, out Func<Creature?, int>? hitCountFunc, out string? errorMsg);
+            bool multihitDetected = HitCountILScanner.TryDetectHitCount(card, out int constHitCount, out string? hitCountVarName, out Type? dynamicVarType, out Func<Creature?, int>? hitCountFunc, out string? errorMsg);
 
             if (!(PreviewManager.CardHitCountVarNameLookup.TryGetValue(card.GetType(), out HitCountVarName? lookup)
                         && (!string.IsNullOrEmpty(lookup.HitCountName) && card.DynamicVars.TryGetValue(lookup.HitCountName, out hitCountVar)
