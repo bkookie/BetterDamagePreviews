@@ -22,7 +22,7 @@ internal static class HitCountILScanner
 
         if (method == null || !BasicILScanner.TryReadIL(method, out List<Instruction>? instructions, out HashSet<int>? branchTargets))
         {
-            errorMsg = method == null ? "method 'OnPlay' not found" : "failed to read methodBody of 'OnPlay'";
+            errorMsg = method == null ? "Method 'OnPlay' not found" : "failed to read methodBody of 'OnPlay'";
             return false;
         }
 

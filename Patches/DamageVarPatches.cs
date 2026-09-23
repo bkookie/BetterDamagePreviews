@@ -84,7 +84,7 @@ internal static class Helper
             {
                 if (!multihitDetected)
                 {
-                    MainFile.Logger.LogMessage(LogLevel.Warn, $"Error reading card '{card.Title}': {errorMsg}", 1);
+                    MainFile.Logger.LogMessage(LogLevel.Warn, $"Cannot read card '{card.Title}': {errorMsg}", 1);
                 }
                 else
                 {
