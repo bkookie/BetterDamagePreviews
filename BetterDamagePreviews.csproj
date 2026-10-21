@@ -81,8 +81,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Alchyr.Sts2.BaseLib" Version="3.4.6" PrivateAssets="All" />
-        <PackageReference Include="Alchyr.Sts2.ModAnalyzers" Version="*" />
         <AdditionalFiles Include="BetterDamagePreviews/localization/**/*.json" />
     </ItemGroup>
 
@@ -120,8 +118,8 @@
     <Target Name="CopyToModsFolderOnBuild" AfterTargets="PostBuildEvent">
         <Message Text="Copying .dll and manifest to mods folder." Importance="high" />
         <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
-        <Copy SourceFiles="BetterDamagePreviews.json" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
-        <Copy SourceFiles="$(TargetDir)\BetterDamagePreviews.xml" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
+        <Copy SourceFiles="$(MSBuildProjectName).json" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
+        <Copy SourceFiles="$(TargetDir)\$(MSBuildProjectName).xml" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
     </Target>
 
     <Target Name="GodotPublish" AfterTargets="Publish" Condition="'$(GodotPath)' != '' and Exists('$(GodotPath)') and '$(IsInnerGodotExport)' != 'true'">
