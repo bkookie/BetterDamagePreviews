@@ -1,6 +1,7 @@
 ﻿using BetterDamagePreviews.DamageSources;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Powers;
@@ -27,6 +28,11 @@ public interface IDamagePreview
     /// The <see cref="CardModel"/> that that this is linked to.
     /// </summary>
     public CardModel Card { get; }
+
+    /// <summary>
+    /// The player owner of the card being held.
+    /// </summary>
+    public Player Player { get; set; }
 
     /// <summary>
     /// The current hover target of the card being held.

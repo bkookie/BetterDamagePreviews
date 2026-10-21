@@ -88,7 +88,7 @@ public static class PreviewManager
         preview.Accuracy = Accuracy.Accurate;
         preview.ShouldDisplayValue = true;
 
-        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Card.Owner.Creature, target, preview.GetHitCount(target));
+        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Player.Creature, target, preview.GetHitCount(target));
         ValueProp props = preview.LinkedDamageVar is DamageVar damageVar ? damageVar.Props : preview.LinkedDamageVar is CalculatedDamageVar calculatedDamageVar ? calculatedDamageVar.Props : default;
         preview.CardDamageSource = new DefaultDamageSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount, props);
 
@@ -127,7 +127,7 @@ public static class PreviewManager
             int hardenedShellAmount = preview.PreviewTarget.GetPower<HardenedShellPower>()?.DisplayAmount ?? 0; // ModifyHpLostBeforeOstyLate (ticks down in AfterDamageReceived)
             int intangibleCap = preview.PreviewTarget.HasPower<IntangiblePower>() ? 1 : 0; // ModifyHpLostAfterOsty (uses ModifyDamageCap for display purposes)
             int slipperyAmount = preview.PreviewTarget.GetPowerAmount<SlipperyPower>(); // ModifyHpLostAfterOsty (ticks down in AfterDamageReceived)
-            bool haveTheBoot = preview.Card.Owner.Relics.Any(relic => relic is TheBoot);
+            bool haveTheBoot = preview.Player.Relics.Any(relic => relic is TheBoot);
             int bootDamage = haveTheBoot ? 5 : 0; // ModifyHpLostAfterOstyLate
             int flutterAmount = preview.PreviewTarget.GetPowerAmount<FlutterPower>(); // AfterDamageReceived
 

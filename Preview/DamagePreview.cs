@@ -1,5 +1,6 @@
 ﻿using BetterDamagePreviews.DamageSources;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Models;
 
@@ -34,6 +35,7 @@ public class DamagePreview : IDamagePreview
         LinkedDamageVar = damageVar;
         GetHitCount = hitCountFunc;
         Card = card;
+        Player = card.Owner;
     }
 
     /// <inheritdoc/>
@@ -50,6 +52,9 @@ public class DamagePreview : IDamagePreview
 
     /// <inheritdoc/>
     public CardModel Card { get; }
+
+    /// <inheritdoc/>
+    public Player Player { get; set; }
 
     /// <inheritdoc/>
     public Creature? PreviewTarget { get; set; }
