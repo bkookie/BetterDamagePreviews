@@ -1,8 +1,12 @@
-﻿using BetterDamagePreviews.DamageSources;
-using BetterDamagePreviews.Hooks;
+﻿using BetterDamagePreviews.Compat;
+using BetterDamagePreviews.DamageSources;
 using BetterDamagePreviews.PreviewInitilizers;
+using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Combat.History.Entries;
+using MegaCrit.Sts2.Core.Commands;
+using MegaCrit.Sts2.Core.Commands.Builders;
+using MegaCrit.Sts2.Core.Debug;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Hooks;
@@ -53,10 +57,24 @@ public static class PreviewManager
         //AddPreviewFactory<TwinStrike>(2);
         //AddPreviewFactory<Uproar>(2);
 
-        AddPreviewFactory<Dismantle>((damageVar, _, card) => new DamagePreview(damageVar, target => target?.HasPower<VulnerablePower>() == true ? 2 : 1, card));
-        AddPreviewFactory<FiendFire>((damageVar, _, card) => new DamagePreview(damageVar, _ => PileType.Hand.GetPile(card.Owner).Cards.Count - (card.Pile?.Type == PileType.Hand ? 1 : 0), card)); // Dont count itself, it wont be in hand when actually played
-        AddPreviewFactory<Spite>((damageVar, _, card) => new DamagePreview(damageVar, _ => CombatManager.Instance.History.Entries.OfType<DamageReceivedEntry>().Any(e => e.HappenedThisTurn(card.CombatState) && e.Receiver == card.Owner.Creature && e.Result.UnblockedDamage > 0) ? card.DynamicVars.Repeat.IntValue : 1, card));
-        AddPreviewFactory<MadScience>((damageVar, hitCountFunc, card) => new DamagePreview(damageVar, target => card is MadScience madScience && madScience.Type == CardType.Attack && madScience.TinkerTimeRider == MegaCrit.Sts2.Core.Models.Events.TinkerTime.RiderEffect.Violence ? hitCountFunc(target) : 1, card));
+        SemanticVersion beta = new(0, 113, 0);
+        SemanticVersion? installed = ReleaseInfoManager.Instance.SemVer;
+
+        if (installed != null)
+        {
+            if (installed.CompareTo(beta) >= 0)
+            {
+                AddPreviewFactory<Dismantle>((damageVar, _, card) => new DamagePreview(damageVar, target => target?.HasPower<VulnerablePower>() == true ? card.DynamicVars.HitCount.IntValue : 1, card));
+                AddPreviewFactory<Spite>((damageVar, _, card) => new DamagePreview(damageVar, _ => CombatManager.Instance.History.Entries.OfType<DamageReceivedEntry>().Any(e => e.HappenedThisTurn(card.CombatState) && e.Receiver == card.Owner.Creature && e.Result.UnblockedDamage > 0) ? card.DynamicVars.HitCount.IntValue : 1, card));
+            }
+            else
+            {
+                AddPreviewFactory<Dismantle>((damageVar, _, card) => new DamagePreview(damageVar, target => target?.HasPower<VulnerablePower>() == true ? 2 : 1, card)); // Now using HitCountVar
+                AddPreviewFactory<FiendFire>((damageVar, _, card) => new DamagePreview(damageVar, _ => PileType.Hand.GetPile(card.Owner).Cards.Count - (card.Pile?.Type == PileType.Hand ? 1 : 0), card)); // Dont count itself, it wont be in hand when actually played // Now using CalculatedHitCountVar, no longer requires special handling
+                AddPreviewFactory<Spite>((damageVar, _, card) => new DamagePreview(damageVar, _ => CombatManager.Instance.History.Entries.OfType<DamageReceivedEntry>().Any(e => e.HappenedThisTurn(card.CombatState) && e.Receiver == card.Owner.Creature && e.Result.UnblockedDamage > 0) ? card.DynamicVars.Repeat.IntValue : 1, card)); // Now using HitCountVar
+            }
+            AddPreviewFactory<MadScience>((damageVar, hitCountFunc, card) => new DamagePreview(damageVar, target => card is MadScience madScience && madScience.Type == CardType.Attack && madScience.TinkerTimeRider == MegaCrit.Sts2.Core.Models.Events.TinkerTime.RiderEffect.Violence ? hitCountFunc(target) : 1, card));
+        }
 
         //AddPreviewFactoryForXHitCountCard<Eradicate>(true);
         AddPreviewFactoryForXHitCountCard<HeavenlyDrill>(true, (card, xValue) => xValue >= 4 ? xValue * 2 : xValue);
@@ -88,11 +106,36 @@ public static class PreviewManager
         preview.Accuracy = Accuracy.Accurate;
         preview.ShouldDisplayValue = true;
 
-        int hitCount = DamagePreviewHook.ModifyHitCountForDisplay(preview.Player.Creature, target, preview.GetHitCount(target));
+        int baseHitCount = preview.GetHitCount(target);
+        int hitCount = (preview.Card.CombatState != null) ? (int)Hook.ModifyAttackHitCount(preview.Card.CombatState, GetDummyAttack(preview.Card), baseHitCount) : baseHitCount;
         ValueProp props = preview.LinkedDamageVar is DamageVar damageVar ? damageVar.Props : preview.LinkedDamageVar is CalculatedDamageVar calculatedDamageVar ? calculatedDamageVar.Props : default;
         preview.CardDamageSource = new DefaultDamageSource(preview.Card, preview.LinkedDamageVar.PreviewValue, hitCount, props);
 
         preview.PreviewValue = CalculateTotalDamage(preview);
+    }
+
+    private delegate AttackCommand FromCardBeta(AttackCommand command, CardModel card, CardPlay? cardPlay);
+    private delegate AttackCommand FromCardMain(AttackCommand command, CardModel card);
+
+    private static readonly FromCardBeta? FromCard_Beta = AccessTools.Method(typeof(AttackCommand), nameof(AttackCommand.FromCard), [typeof(CardModel), typeof(CardPlay)])?.CreateDelegate<FromCardBeta>();
+    private static readonly FromCardMain? FromCard_Main = AccessTools.Method(typeof(AttackCommand), nameof(AttackCommand.FromCard), [typeof(CardModel)])?.CreateDelegate<FromCardMain>();
+
+    private static AttackCommand GetDummyAttack(CardModel card)
+    {
+        AttackCommand dummy = DamageCmd.Attack(0);
+        if (FromCard_Beta != null)
+        {
+            FromCard_Beta(dummy, card, null);
+        }
+        else if (FromCard_Main != null)
+        {
+            FromCard_Main(dummy, card);
+        }
+        else
+        {
+            MainFile.Logger.Error("Could not resolve method 'AttackCommand.FromCard'");
+        }
+        return dummy;
     }
 
     /// <summary>

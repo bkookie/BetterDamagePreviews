@@ -12,18 +12,4 @@ public class DamagePreviewHook
     {
         return combatState?.IterateHookListeners().OfType<T>() ?? [];
     }
-
-    /// <inheritdoc cref="IHitCountModifierForDisplay.ModifyHitCountForDisplay(Creature?, Creature?, int)"/>
-    public static int ModifyHitCountForDisplay(Creature attacker, Creature? target, int hitCount) 
-    {
-        // I dont have an AttackCommand to use the actual ModifyAttackHitCount hook
-        // Iterates all combat listeners, returning any that implement either our IHitCountModifierForDisplay, or their registered version of it
-
-        foreach (IHitCountModifierForDisplay hitCountModifier in CombatHookListeners<IHitCountModifierForDisplay>(attacker.CombatState))
-        {
-            hitCount = hitCountModifier.ModifyHitCountForDisplay(attacker, target, hitCount);
-        }
-
-        return hitCount;
-    }
 }

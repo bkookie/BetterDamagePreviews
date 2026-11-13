@@ -1,3 +1,5 @@
+using System.Reflection;
+using BetterDamagePreviews.Patches;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Modding;
@@ -13,10 +15,13 @@ public partial class MainFile : Node
 
     public static void Initialize()
     {
+        var assembly = Assembly.GetExecutingAssembly();
+
         Harmony harmony = new(ModId);
 #if DEBUG
         Harmony.DEBUG = true;
 #endif
-        harmony.PatchAll();
+        harmony.PatchAll(assembly);
+        DamageVarPatches.CompatPatch(harmony);
     }
 }

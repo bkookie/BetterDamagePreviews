@@ -18,6 +18,9 @@ public interface IDamageSource
     /// <summary>
     /// Initializes all relevant fields. Called once at the start of calculations with <paramref name="isTopLevel"/> = <see langword="true"/>, then again after every instance of calculated damage with a value of <see langword="false"/>.
     /// </summary>
+    /// <remarks>
+    /// <see cref="HitsRemaining"/> should generally be set to equal <see cref="HitCount"/> here.
+    /// </remarks>
     /// <param name="preview">The original <see cref="IDamagePreview"/> generated for the currently previewed card.</param>
     /// <param name="isTopLevel">Whether this is the first initialization. Only reset static counters when this is true.</param>
     public void Initialize(IDamagePreview preview, bool isTopLevel);
@@ -33,7 +36,7 @@ public interface IDamageSource
     public decimal Damage { get; set; }
 
     /// <summary>
-    /// How many times this will hit.
+    /// How many total times this will hit.
     /// </summary>
     public int HitCount { get; set; }
 

@@ -1,4 +1,5 @@
-﻿using BetterDamagePreviews.Preview;
+﻿using System.Reflection;
+using BetterDamagePreviews.Preview;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
@@ -8,26 +9,35 @@ using MegaCrit.Sts2.Core.Models;
 namespace BetterDamagePreviews.Patches;
 
 [HarmonyPatch]
-public static class UpdateCardPreviewPatch
+internal static class DamageVarPatches
 {
+    internal static void CompatPatch(Harmony harmony)
+    {
+        MethodInfo? getBaseValueForIConvertable = AccessTools.Method(typeof(CalculatedVar), "GetBaseValueForIConvertible");
+        if (getBaseValueForIConvertable != null)
+        {
+            HarmonyMethod postfix = new(AccessTools.Method(typeof(DamageVarPatches), nameof(Postfix_GetBaseValueForIConvertible)));
+            harmony.Patch(getBaseValueForIConvertable, postfix: postfix);
+        }
+    }
+
     [HarmonyPatch(typeof(DamageVar), nameof(DamageVar.UpdateCardPreview))]
     [HarmonyPostfix]
-    private static void Postfix_DamageVar(DamageVar __instance, CardModel card, Creature target)
+    internal static void Postfix_DamageVar(DamageVar __instance, CardModel card, Creature target)
     {
         Helper.Postfix(__instance, card, target);
     }
 
     [HarmonyPatch(typeof(CalculatedDamageVar), nameof(CalculatedDamageVar.UpdateCardPreview))]
     [HarmonyPostfix]
-    private static void Postfix_CalculatedDamageVar(CalculatedDamageVar __instance, CardModel card, Creature target)
+    internal static void Postfix_CalculatedDamageVar(CalculatedDamageVar __instance, CardModel card, Creature target)
     {
         Helper.Postfix(__instance, card, target);
     }
 
-    [HarmonyPatch(typeof(CalculatedVar), "GetBaseValueForIConvertible")]
-    [HarmonyPostfix]
-    private static void Postfix_GetBaseValueForIConvertible(CalculatedVar __instance, ref decimal __result)
+    internal static void Postfix_GetBaseValueForIConvertible(CalculatedVar __instance, ref decimal __result)
     {
+        // Ive forgotten why this patch was even needed
         __result = __instance.PreviewValue; // for plural formatter
     }
 }
@@ -51,30 +61,43 @@ internal static class Helper
 
         if (!PreviewManager.PreviewCache.TryGetValue(__instance, out IDamagePreview? preview))
         {
-            DynamicVar? hitCountVar = null;
-            bool multihitDetected = HitCountILScanner.TryDetectHitCount(card, out int constHitCount, out string? hitCountVarName, out Type? dynamicVarType, out Func<Creature?, int>? hitCountFunc, out string? errorMsg);
+            DynamicVar? hitCountVar = card.DynamicVars.Values.FirstOrDefault(dvar => dvar.GetType().Name == "HitCountVar" || dvar.GetType().Name == "CalculatedHitCountVar"); // Use reflection for main-branch compat
 
-            if (!(PreviewManager.CardHitCountVarNameLookup.TryGetValue(card.GetType(), out HitCountVarName? lookup)
-                        && (!string.IsNullOrEmpty(lookup.HitCountName) && card.DynamicVars.TryGetValue(lookup.HitCountName, out hitCountVar)
-                            || !string.IsNullOrEmpty(lookup.CalculatedHitCountName) && card.DynamicVars.TryGetValue(lookup.CalculatedHitCountName, out hitCountVar)))
-                && multihitDetected
-                && (hitCountVarName == null || !card.DynamicVars.TryGetValue(hitCountVarName, out hitCountVar))
-                && hitCountFunc == null)
+            bool multihitDetected;
+
+            int constHitCount = -1;
+            string? hitCountVarName = null;
+            Type? dynamicVarType = null;
+            Func<Creature?, int>? hitCountFunc = null;
+            string? errorMsg = null;
+
+            if (hitCountVar != null)
             {
-                foreach (var kvp in card.DynamicVars)
+                multihitDetected = true;
+            }
+            else
+            {
+                multihitDetected = HitCountILScanner.TryDetectHitCount(card, out constHitCount, out hitCountVarName, out dynamicVarType, out hitCountFunc, out errorMsg);
+
+                if (!(PreviewManager.CardHitCountVarNameLookup.TryGetValue(card.GetType(), out HitCountVarName? lookup)
+                            && (!string.IsNullOrEmpty(lookup.HitCountName) && card.DynamicVars.TryGetValue(lookup.HitCountName, out hitCountVar)
+                                || !string.IsNullOrEmpty(lookup.CalculatedHitCountName) && card.DynamicVars.TryGetValue(lookup.CalculatedHitCountName, out hitCountVar)))
+                    && multihitDetected
+                    && (hitCountVarName == null || !card.DynamicVars.TryGetValue(hitCountVarName, out hitCountVar))
+                    && hitCountFunc == null)
                 {
-                    string name = kvp.Key;
-                    DynamicVar dvar = kvp.Value;
-
-                    if (dynamicVarType != null && !dvar.GetType().IsAssignableTo(dynamicVarType) || dvar is DamageVar || dvar is ExtraDamageVar || dvar is CalculationBaseVar || dvar is CalculationExtraVar)
-                        continue;
-
-                    foreach (string s in CommonHitCountVarNames)
+                    foreach (var (name, dvar) in card.DynamicVars)
                     {
-                        if (name.Contains(s))
+                        if (dynamicVarType != null && !dvar.GetType().IsAssignableTo(dynamicVarType) || dvar is DamageVar || dvar is ExtraDamageVar || dvar is CalculationBaseVar || dvar is CalculationExtraVar)
+                            continue;
+
+                        foreach (string s in CommonHitCountVarNames)
                         {
-                            hitCountVar = dvar;
-                            break;
+                            if (name.Contains(s))
+                            {
+                                hitCountVar = dvar;
+                                break;
+                            }
                         }
                     }
                 }
@@ -128,14 +151,12 @@ internal static class Helper
                 }
             }
 
-            foreach (var kvp in PreviewManager.CardPreviewFactory)
+            foreach (var (lookupType, factory) in PreviewManager.CardPreviewFactory)
             {
                 Type cardType = card.GetType();
-                Type lookupType = kvp.Key;
 
                 if (cardType == lookupType || lookupType.IsInterface && cardType.IsAssignableTo(lookupType))
                 {
-                    Func<DynamicVar, Func<Creature?, int>, CardModel, IDamagePreview> factory = kvp.Value;
                     preview = factory(__instance, hitCountFunc ?? PreviewManager.HitCountFromDynamicVarFunc(hitCountVar), card);
                     break;
                 }
